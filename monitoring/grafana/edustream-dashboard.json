@@ -1,0 +1,47 @@
+{
+  "title": "EduStream — Platform Overview",
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "graph",
+      "targets": [
+        { "expr": "rate(flask_http_request_total[5m])", "legendFormat": "{{method}} {{status}}" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "95th Percentile Latency",
+      "type": "graph",
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m]))" }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Pod CPU Usage",
+      "type": "graph",
+      "targets": [
+        { "expr": "sum(rate(container_cpu_usage_seconds_total{namespace='edustream'}[5m])) by (pod)" }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Pod Memory Usage",
+      "type": "graph",
+      "targets": [
+        { "expr": "sum(container_memory_usage_bytes{namespace='edustream'}) by (pod)" }
+      ],
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 }
+    },
+    {
+      "title": "App Up/Down",
+      "type": "stat",
+      "targets": [
+        { "expr": "up{job='edustream-app'}" }
+      ],
+      "gridPos": { "x": 0, "y": 16, "w": 6, "h": 6 }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

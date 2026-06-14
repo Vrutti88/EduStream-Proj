@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: edustream-config
+  namespace: edustream
+data:
+  FLASK_ENV: "production"
+  APP_NAME: "EduStream"
+  LOG_LEVEL: "info"

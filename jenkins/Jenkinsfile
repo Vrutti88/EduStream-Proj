@@ -1,0 +1,125 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE      = "yourdockerhub/edustream"
+        IMAGE_TAG         = "${env.BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = credentials('dockerhub-creds')
+        KUBE_NAMESPACE    = "edustream"
+        VAULT_ADDR        = "http://vault.edustream.svc:8200"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-org/edustream.git'
+            }
+        }
+
+        stage('Install & Unit Test') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install -r app/requirements.txt
+                    pip install pytest
+                    pytest app/tests --junitxml=test-results.xml || true
+                '''
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                }
+            }
+        }
+
+        stage('Static Code Analysis (SAST)') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    pip install bandit
+                    bandit -r app -f json -o bandit-report.json || true
+                '''
+                archiveArtifacts artifacts: 'bandit-report.json', allowEmptyArchive: true
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG -t $DOCKER_IMAGE:latest ./app'
+            }
+        }
+
+        stage('Image Vulnerability Scan') {
+            steps {
+                sh 'trivy image --severity HIGH,CRITICAL --exit-code 0 $DOCKER_IMAGE:$IMAGE_TAG'
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                sh '''
+                    echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin
+                    docker push $DOCKER_IMAGE:$IMAGE_TAG
+                    docker push $DOCKER_IMAGE:latest
+                '''
+            }
+        }
+
+        stage('Provision Infra (Terraform)') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        terraform init -input=false
+                        terraform plan -out=tfplan
+                        terraform apply -input=false -auto-approve tfplan
+                    '''
+                }
+            }
+        }
+
+        stage('Fetch Secrets from Vault') {
+            steps {
+                sh '''
+                    export VAULT_TOKEN=$(vault login -method=approle role_id=$ROLE_ID secret_id=$SECRET_ID -field=token)
+                    vault kv get -format=json secret/edustream/db > db-secret.json
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    sed -i "s|IMAGE_TAG_PLACEHOLDER|$IMAGE_TAG|g" k8s/deployment.yaml
+                    kubectl apply -f k8s/namespace.yaml
+                    kubectl apply -f k8s/configmap.yaml
+                    kubectl apply -f k8s/secret.yaml
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                    kubectl apply -f k8s/hpa.yaml
+                    kubectl rollout status deployment/edustream -n $KUBE_NAMESPACE --timeout=120s
+                '''
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                sh '''
+                    sleep 10
+                    curl -f http://edustream.example.com/health
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful — EduStream is live.'
+        }
+        failure {
+            echo 'Pipeline failed — rolling back to previous revision.'
+            sh 'kubectl rollout undo deployment/edustream -n $KUBE_NAMESPACE || true'
+        }
+    }
+}

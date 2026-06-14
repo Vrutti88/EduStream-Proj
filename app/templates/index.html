@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}EduStream — Virtual Classroom Platform{% endblock %}
+{% block body %}
+<body class="bg-gradient">
+<header class="app-header">
+  <div class="brand"><div class="mark">E</div>EduStream</div>
+  <div class="header-actions">
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#platform">Platform</a>
+    </nav>
+    <button class="theme-toggle" onclick="toggleTheme()">◐</button>
+    <a href="/login" class="btn ghost small" style="text-decoration:none">Sign in</a>
+    <a href="/register" class="btn small" style="text-decoration:none">Get started</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div>
+    <div class="meta-pill" style="display:inline-block;margin-bottom:16px">Virtual Classroom Platform</div>
+    <h1>Live learning with <span>courses, sessions &amp; attendance</span></h1>
+    <p>EduStream is a production-ready virtual classroom platform with role-based access, time-aware live sessions, enrollment, study materials, announcements, and real-time analytics — built on a full DevOps pipeline.</p>
+    <div class="hero-actions">
+      <a href="/register" class="btn" style="text-decoration:none">Start learning</a>
+      <a href="/dashboard" class="btn ghost" style="text-decoration:none">Open dashboard</a>
+    </div>
+    <div class="stats-grid" style="margin-top:32px" id="hero-stats">
+      <div class="stat-card"><div class="num" id="stat-courses">—</div><div class="label">Courses</div></div>
+      <div class="stat-card"><div class="num" id="stat-sessions">—</div><div class="label">Sessions</div></div>
+      <div class="stat-card"><div class="num" id="stat-enrollments">—</div><div class="label">Enrollments</div></div>
+      <div class="stat-card"><div class="num" id="stat-live">—</div><div class="label">Live now</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><h2>System Status</h2><span class="badge live" id="health-status">checking</span></div>
+    <div style="font-size:.88rem;color:var(--muted);line-height:2">
+      <div>API: <code>/health</code> · Metrics: <code>/metrics</code></div>
+      <div>Stack: Docker · Kubernetes · Jenkins · Terraform · Prometheus · Grafana · ELK · Vault</div>
+    </div>
+  </div>
+</section>
+
+<main style="max-width:1180px;margin:0 auto;padding:0 24px 80px" id="features">
+  <div class="panel" style="margin-bottom:24px">
+    <div class="panel-head"><h2>Platform Features</h2></div>
+    <div class="course-grid">
+      <div class="course-card"><h3>Role-Based Access</h3><p class="meta">Admin, Teacher, and Student dashboards with JWT authentication</p></div>
+      <div class="course-card"><h3>Live Sessions</h3><p class="meta">Time-aware scheduling with automatic join windows and attendance tracking</p></div>
+      <div class="course-card"><h3>Course Management</h3><p class="meta">Full CRUD, search, filter, enrollment, materials, and announcements</p></div>
+      <div class="course-card"><h3>Analytics</h3><p class="meta">Enrollment charts, attendance trends, and session activity dashboards</p></div>
+    </div>
+  </div>
+
+  <div class="panel" id="platform">
+    <div class="panel-head"><h2>DevOps Infrastructure</h2></div>
+    <div class="course-grid">
+      <div class="course-card"><h3>🐳 Docker</h3><p class="meta">Containerized Flask app with health checks</p></div>
+      <div class="course-card"><h3>☸️ Kubernetes</h3><p class="meta">EKS deployment with HPA and probes</p></div>
+      <div class="course-card"><h3>🔁 Jenkins</h3><p class="meta">CI/CD with SAST, Trivy, and rollback</p></div>
+      <div class="course-card"><h3>📊 Monitoring</h3><p class="meta">Prometheus metrics and Grafana dashboards</p></div>
+    </div>
+  </div>
+</main>
+
+<footer style="border-top:1px solid var(--border);padding:24px;text-align:center;color:var(--muted);font-size:.8rem">
+  EduStream · Virtual Classroom Platform · DevOps Reference Project
+</footer>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadStats() {
+  try {
+    const d = await fetch('/api/stats').then(r => r.json());
+    document.getElementById('stat-courses').textContent = d.total_courses;
+    document.getElementById('stat-sessions').textContent = d.total_sessions || d.total_classes;
+    document.getElementById('stat-enrollments').textContent = d.total_enrollments;
+    document.getElementById('stat-live').textContent = d.live_sessions;
+  } catch {}
+}
+async function loadHealth() {
+  try {
+    await fetch('/health');
+    document.getElementById('health-status').textContent = 'healthy';
+  } catch {
+    document.getElementById('health-status').textContent = 'down';
+    document.getElementById('health-status').className = 'badge cancelled';
+  }
+}
+loadStats(); loadHealth();
+setInterval(loadStats, 10000);
+</script>
+{% endblock %}

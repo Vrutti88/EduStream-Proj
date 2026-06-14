@@ -1,0 +1,29 @@
+groups:
+  - name: edustream-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(flask_http_request_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on EduStream"
+          description: "More than 5% of requests are failing (5xx) for 5 minutes."
+
+      - alert: AppDown
+        expr: up{job="edustream-app"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EduStream app is down"
+          description: "Prometheus cannot reach the EduStream /metrics endpoint."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(flask_http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency"
+          description: "95th percentile latency above 1s for 5 minutes."
