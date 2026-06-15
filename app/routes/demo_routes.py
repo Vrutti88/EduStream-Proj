@@ -58,7 +58,7 @@ def seed_demo_data():
             """
             SELECT id
             FROM users
-            WHERE email=?
+            WHERE email=%s
             """,
             (email,)
         ).fetchone()
@@ -75,7 +75,7 @@ def seed_demo_data():
                     role,
                     created_at
                 )
-                VALUES (?,?,?,?,?)
+                VALUES (%s,%s,%s,%s,%s)
                 """,
                 (
                     email,
@@ -108,7 +108,7 @@ def seed_demo_data():
             """
             SELECT id
             FROM courses
-            WHERE course_code=?
+            WHERE course_code=%s
             """,
             (code,)
         ).fetchone()
@@ -130,7 +130,7 @@ def seed_demo_data():
                     category,
                     created_at
                 )
-                VALUES (?,?,?,?,?,?)
+                VALUES (%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     title,
@@ -144,8 +144,8 @@ def seed_demo_data():
 
             course_ids.append(
                 conn.execute(
-                    "SELECT last_insert_rowid()"
-                ).fetchone()[0]
+                    "SELECT LAST_INSERT_ID()"
+                ).fetchone()['LAST_INSERT_ID()']
             )
 
     conn.commit()
@@ -168,13 +168,13 @@ def seed_demo_data():
 
             conn.execute(
                 """
-                INSERT OR IGNORE INTO enrollments
+                INSERT IGNORE INTO enrollments
                 (
                     course_id,
                     student_id,
                     enrolled_at
                 )
-                VALUES (?,?,?)
+                VALUES (%s,%s,%s)
                 """,
                 (
                     course_id,
@@ -215,7 +215,7 @@ def seed_demo_data():
                 )
                 VALUES
                 (
-                    ?,?,?,?,?,?,?,?,?
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s
                 )
                 """,
                 (
@@ -249,7 +249,7 @@ def seed_demo_data():
             )
             VALUES
             (
-                ?,?,?,?,?,?,?,?,?
+                %s,%s,%s,%s,%s,%s,%s,%s,%s
             )
             """,
             (
@@ -285,7 +285,7 @@ def seed_demo_data():
             )
             VALUES
             (
-                ?,?,?,?,?,?,?,?,?
+                %s,%s,%s,%s,%s,%s,%s,%s,%s
             )
             """,
             (
@@ -327,7 +327,7 @@ def seed_demo_data():
         students = conn.execute("""
         SELECT student_id
         FROM enrollments
-        WHERE course_id=?
+        WHERE course_id=%s
         ORDER BY student_id
         """, (session['course_id'],)).fetchall()
 
@@ -340,7 +340,7 @@ def seed_demo_data():
             if pos < len(student_ids):
 
                 conn.execute("""
-                INSERT OR IGNORE INTO attendance
+                INSERT IGNORE INTO attendance
                 (
                     student_id,
                     course_id,
@@ -348,7 +348,7 @@ def seed_demo_data():
                     join_time,
                     status
                 )
-                VALUES (?,?,?,?,?)
+                VALUES (%s,%s,%s,%s,%s)
                 """, (
                     student_ids[pos],
                     session['course_id'],
@@ -377,7 +377,7 @@ def seed_demo_data():
             )
             VALUES
             (
-                ?,?,?,?,?
+                %s,%s,%s,%s,%s
             )
             """,
             (

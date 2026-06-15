@@ -9,8 +9,8 @@ resource "aws_security_group" "rds_sg" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port       = 5432
-    to_port         = 5432
+    from_port       = 3306
+    to_port         = 3306
     protocol        = "tcp"
     cidr_blocks     = ["10.0.0.0/16"]
   }
@@ -25,18 +25,18 @@ resource "aws_security_group" "rds_sg" {
 
 resource "aws_db_instance" "main" {
   identifier              = "${var.project_name}-db"
-  engine                  = "postgres"
-  engine_version          = "15.5"
+  engine                  = "mysql"
+  engine_version          = "8.0"
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
-  db_name                 = "edustream"
+  db_name                 = "edustream_db"
   username                = var.db_username
   password                = var.db_password
   db_subnet_group_name    = aws_db_subnet_group.main.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
-  multi_az                = true
+  multi_az                = false
   backup_retention_period = 7
-  skip_final_snapshot     = false
+  skip_final_snapshot     = true
   final_snapshot_identifier = "${var.project_name}-final-snapshot"
 
   tags = { Name = "${var.project_name}-rds" }

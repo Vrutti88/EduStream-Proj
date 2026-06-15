@@ -31,7 +31,7 @@ variable "cluster_version" {
 }
 
 variable "node_instance_type" {
-  default = "t3.medium"
+  default = "m7i-flex.large"
 }
 
 variable "db_username" {

@@ -15,7 +15,7 @@ def list_classes(course_id):
     sync_all_sessions(conn)
     conn.commit()
     rows = conn.execute(
-        'SELECT id, title, session_date, start_time, end_time, status, meeting_link FROM sessions WHERE course_id=? ORDER BY session_date, start_time',
+        'SELECT id, title, session_date, start_time, end_time, status, meeting_link FROM sessions WHERE course_id=%s ORDER BY session_date, start_time',
         (course_id,)
     ).fetchall()
     conn.close()
@@ -49,7 +49,7 @@ def create_class(course_id):
 
     user = get_current_user(optional=True)
     conn = get_db()
-    course = conn.execute('SELECT * FROM courses WHERE id=?', (course_id,)).fetchone()
+    course = conn.execute('SELECT * FROM courses WHERE id=%s', (course_id,)).fetchone()
     if not course:
         conn.close()
         return jsonify(error='Course not found'), 404
@@ -59,7 +59,7 @@ def create_class(course_id):
 
     conn.execute(
         '''INSERT INTO sessions (course_id, title, description, instructor_id, session_date,
-           start_time, end_time, meeting_link, status) VALUES (?,?,?,?,?,?,?,?,?)''',
+           start_time, end_time, meeting_link, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
         (course_id, data.get('title', 'Class'), data.get('description', ''),
          instructor_id, session_date, start_time, end_time,
          data.get('meeting_link', f'https://meet.edustream.edu/{course_id}'), 'scheduled')
@@ -75,7 +75,7 @@ def join_class_legacy(class_id):
     user = get_current_user(optional=True)
     conn = get_db()
     sync_session_status(conn, class_id)
-    row = conn.execute('SELECT * FROM sessions WHERE id=?', (class_id,)).fetchone()
+    row = conn.execute('SELECT * FROM sessions WHERE id=%s', (class_id,)).fetchone()
     if not row:
         conn.close()
         return jsonify(error='Class not found'), 404
@@ -91,7 +91,7 @@ def join_class_legacy(class_id):
         student_name = user['name']
     else:
         student_name = data.get('name', 'Guest')
-        guest = conn.execute('SELECT id FROM users WHERE email=?', (f'{student_name.lower().replace(" ","")}@guest.local',)).fetchone()
+        guest = conn.execute('SELECT id FROM users WHERE email=%s', (f'{student_name.lower().replace(" ","")}@guest.local',)).fetchone()
         if not guest:
             conn.close()
             return jsonify(error='Authentication required to join sessions'), 401
@@ -99,15 +99,15 @@ def join_class_legacy(class_id):
 
     now = datetime.datetime.utcnow().isoformat()
     existing = conn.execute(
-        'SELECT id FROM attendance WHERE session_id=? AND student_id=?',
+        'SELECT id FROM attendance WHERE session_id=%s AND student_id=%s',
         (class_id, student_id)
     ).fetchone()
     if not existing:
         conn.execute(
-            'INSERT INTO attendance (student_id, course_id, session_id, join_time, status) VALUES (?,?,?,?,?)',
+            'INSERT INTO attendance (student_id, course_id, session_id, join_time, status) VALUES (%s,%s,%s,%s,%s)',
             (student_id, session['course_id'], class_id, now, 'present')
         )
-    conn.execute("UPDATE sessions SET status='live' WHERE id=? AND status='scheduled'", (class_id,))
+    conn.execute("UPDATE sessions SET status='live' WHERE id=%s AND status='scheduled'", (class_id,))
     conn.commit()
     conn.close()
     return jsonify(message='Joined class'), 201

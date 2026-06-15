@@ -3,7 +3,15 @@ kind: ConfigMap
 metadata:
   name: edustream-config
   namespace: edustream
+
 data:
   FLASK_ENV: "production"
   APP_NAME: "EduStream"
   LOG_LEVEL: "info"
+
+  MYSQL_PORT: "3306"
+  MYSQL_DATABASE: "edustream_db"
+
+  JWT_EXPIRY_HOURS: "24"
+
+  UPLOAD_DIR: "/app/uploads"

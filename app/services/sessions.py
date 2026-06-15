@@ -50,7 +50,7 @@ def compute_session_status(session, now=None):
 
 
 def sync_session_status(conn, session_id):
-    row = conn.execute('SELECT * FROM sessions WHERE id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT * FROM sessions WHERE id=%s', (session_id,)).fetchone()
     if not row:
         return None
     session = dict(row)
@@ -58,13 +58,13 @@ def sync_session_status(conn, session_id):
         return session
     effective = compute_session_status(session)
     if effective != session['status']:
-        conn.execute('UPDATE sessions SET status=? WHERE id=?', (effective, session_id))
+        conn.execute('UPDATE sessions SET status=%s WHERE id=%s', (effective, session_id))
         session['status'] = effective
     return session
 
 
 def sync_all_sessions(conn):
-    rows = conn.execute('SELECT id FROM sessions WHERE status != ?', ('cancelled',)).fetchall()
+    rows = conn.execute('SELECT id FROM sessions WHERE status != %s', ('cancelled',)).fetchall()
     for row in rows:
         sync_session_status(conn, row['id'])
 

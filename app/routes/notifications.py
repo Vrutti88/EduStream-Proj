@@ -12,7 +12,7 @@ notifications_bp = Blueprint('notifications', __name__)
 def list_notifications():
     conn = get_db()
     rows = conn.execute(
-        'SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50',
+        'SELECT * FROM notifications WHERE user_id=%s ORDER BY created_at DESC LIMIT 50',
         (g.user['id'],)
     ).fetchall()
     conn.close()
@@ -24,9 +24,9 @@ def list_notifications():
 def unread_count():
     conn = get_db()
     count = conn.execute(
-        'SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0',
+        'SELECT COUNT(*) AS cnt FROM notifications WHERE user_id=%s AND is_read=0',
         (g.user['id'],)
-    ).fetchone()[0]
+    ).fetchone()['cnt']
     conn.close()
     return jsonify(count=count)
 
@@ -36,7 +36,7 @@ def unread_count():
 def mark_read(notif_id):
     conn = get_db()
     conn.execute(
-        'UPDATE notifications SET is_read=1 WHERE id=? AND user_id=?',
+        'UPDATE notifications SET is_read=1 WHERE id=%s AND user_id=%s',
         (notif_id, g.user['id'])
     )
     conn.commit()
@@ -49,7 +49,7 @@ def mark_read(notif_id):
 def mark_all_read():
     conn = get_db()
     conn.execute(
-        'UPDATE notifications SET is_read=1 WHERE user_id=?',
+        'UPDATE notifications SET is_read=1 WHERE user_id=%s',
         (g.user['id'],)
     )
     conn.commit()

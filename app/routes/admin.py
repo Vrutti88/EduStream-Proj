@@ -17,7 +17,7 @@ def list_users():
     query = 'SELECT id, email, name, role, created_at FROM users'
     params = []
     if role:
-        query += ' WHERE role=?'
+        query += ' WHERE role=%s'
         params.append(role)
     query += ' ORDER BY id DESC'
     rows = conn.execute(query, params).fetchall()
@@ -40,14 +40,14 @@ def create_user():
     conn = get_db()
     try:
         conn.execute(
-            'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?,?,?,?,?)',
+            'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (%s,%s,%s,%s,%s)',
             (email, generate_password_hash(password), name, role,
              datetime.datetime.utcnow().isoformat())
         )
         conn.commit()
-        user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        user_id = conn.execute('SELECT LAST_INSERT_ID()').fetchone()['LAST_INSERT_ID()']
         row = conn.execute(
-            'SELECT id, email, name, role, created_at FROM users WHERE id=?', (user_id,)
+            'SELECT id, email, name, role, created_at FROM users WHERE id=%s', (user_id,)
         ).fetchone()
         conn.close()
         return jsonify(dict(row)), 201
@@ -65,19 +65,19 @@ def update_user(user_id):
     values = []
     for key in ('name', 'role', 'email'):
         if key in data:
-            fields.append(f'{key}=?')
+            fields.append(f'{key}=%s')
             values.append(data[key])
     if data.get('password'):
-        fields.append('password_hash=?')
+        fields.append('password_hash=%s')
         values.append(generate_password_hash(data['password']))
     if not fields:
         conn.close()
         return jsonify(error='No fields to update'), 400
     values.append(user_id)
-    conn.execute(f'UPDATE users SET {", ".join(fields)} WHERE id=?', values)
+    conn.execute(f'UPDATE users SET {", ".join(fields)} WHERE id=%s', values)
     conn.commit()
     row = conn.execute(
-        'SELECT id, email, name, role, created_at FROM users WHERE id=?', (user_id,)
+        'SELECT id, email, name, role, created_at FROM users WHERE id=%s', (user_id,)
     ).fetchone()
     conn.close()
     if not row:
@@ -91,7 +91,7 @@ def delete_user(user_id):
     if user_id == g.user['id']:
         return jsonify(error='Cannot delete your own account'), 400
     conn = get_db()
-    conn.execute('DELETE FROM users WHERE id=?', (user_id,))
+    conn.execute('DELETE FROM users WHERE id=%s', (user_id,))
     conn.commit()
     conn.close()
     return jsonify(message='User deleted')

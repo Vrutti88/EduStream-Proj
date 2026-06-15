@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE      = "yourdockerhub/edustream"
+        DOCKER_IMAGE      = "vrutti88/edustream"
         IMAGE_TAG         = "${env.BUILD_NUMBER}"
         DOCKER_CREDENTIALS = credentials('dockerhub-creds')
         KUBE_NAMESPACE    = "edustream"
@@ -13,7 +13,7 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-org/edustream.git'
+                git branch: 'main', url: 'https://github.com/Vrutti88/EduStream-Project.git'
             }
         }
 
@@ -107,7 +107,7 @@ pipeline {
             steps {
                 sh '''
                     sleep 10
-                    curl -f http://edustream.example.com/health
+                    curl -f http://<LOAD_BALANCER_URL>/health
                 '''
             }
         }

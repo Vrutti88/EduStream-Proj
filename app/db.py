@@ -1,156 +1,220 @@
 import os
-import sqlite3
 import datetime
+import mysql.connector
+from mysql.connector import pooling
 from werkzeug.security import generate_password_hash
 
-from config import DB_PATH, UPLOAD_DIR
+from config import (
+    MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
+    MYSQL_PASSWORD, MYSQL_DATABASE, UPLOAD_DIR
+)
 
-DB = DB_PATH
+_pool = None
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        _pool = pooling.MySQLConnectionPool(
+            pool_name="edustream_pool",
+            pool_size=20,
+            host=MYSQL_HOST,
+            port=MYSQL_PORT,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            autocommit=False,
+        )
+    return _pool
+
+
+class _CursorWrapper:
+    """Wraps a MySQL dictionary cursor to mimic sqlite3's row access style."""
+
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, sql, params=None):
+        self._cursor.execute(sql, params or ())
+        return self
+
+    def executemany(self, sql, params):
+        self._cursor.executemany(sql, params)
+        return self
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+    @property
+    def lastrowid(self):
+        return self._cursor.lastrowid
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def __iter__(self):
+        return iter(self._cursor.fetchall())
+
+    def close(self):
+        self._cursor.close()
+
+
+class _ConnectionWrapper:
+    """Wraps a MySQL connection to mimic the sqlite3 connection API used in routes."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self._cursor = conn.cursor(dictionary=True)
+        self._wrapper = _CursorWrapper(self._cursor)
+
+    def execute(self, sql, params=None):
+        self._wrapper.execute(sql, params)
+        return self._wrapper
+
+    def executescript(self, script):
+        # executescript is only called in init_db which we handle differently
+        for statement in script.strip().split(';'):
+            s = statement.strip()
+            if s:
+                self._cursor.execute(s)
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        # print("Closing DB connection")
+        self._cursor.close()
+        self._conn.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type:
+            self.rollback()
+        else:
+            self.commit()
+        self.close()
 
 
 def get_db():
-    conn = sqlite3.connect(
-        DB,
-        timeout=30
-    )
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA foreign_keys = ON')
-    return conn
-
-
-def _table_exists(conn, name):
-    row = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
-    ).fetchone()
-    return row is not None
-
-
-def _migrate_legacy(conn):
-    if not _table_exists(conn, 'courses'):
-        return
-    if _table_exists(conn, 'users'):
-        return
-    if not _table_exists(conn, 'classes'):
-        return
-    try:
-        conn.executescript('''
-            ALTER TABLE courses RENAME TO courses_legacy;
-            ALTER TABLE classes RENAME TO classes_legacy;
-            ALTER TABLE enrollments RENAME TO enrollments_legacy;
-            ALTER TABLE attendance RENAME TO attendance_legacy;
-        ''')
-    except sqlite3.OperationalError:
-        pass
+    # print("Getting DB connection")
+    conn = _get_pool().get_connection()
+    return _ConnectionWrapper(conn)
 
 
 def init_db():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    conn = get_db()
-    _migrate_legacy(conn)
+    raw_conn = _get_pool().get_connection()
+    cursor = raw_conn.cursor(dictionary=True)
 
-    conn.executescript('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            name TEXT NOT NULL,
-            role TEXT NOT NULL CHECK(role IN ('admin', 'teacher', 'student')),
-            created_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            course_code TEXT UNIQUE NOT NULL,
+    statements = [
+        '''CREATE TABLE IF NOT EXISTS users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            role ENUM('admin', 'teacher', 'student') NOT NULL,
+            created_at VARCHAR(50) NOT NULL
+        )''',
+        '''CREATE TABLE IF NOT EXISTS courses (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            course_code VARCHAR(100) UNIQUE NOT NULL,
             description TEXT,
-            instructor_id INTEGER NOT NULL,
-            category TEXT,
-            thumbnail TEXT,
-            created_at TEXT NOT NULL,
+            instructor_id INT NOT NULL,
+            category VARCHAR(100),
+            thumbnail VARCHAR(255),
+            created_at VARCHAR(50) NOT NULL,
             FOREIGN KEY (instructor_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS enrollments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            course_id INTEGER NOT NULL,
-            student_id INTEGER NOT NULL,
-            enrolled_at TEXT NOT NULL,
-            UNIQUE(course_id, student_id),
+        )''',
+        '''CREATE TABLE IF NOT EXISTS enrollments (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_id INT NOT NULL,
+            student_id INT NOT NULL,
+            enrolled_at VARCHAR(50) NOT NULL,
+            UNIQUE KEY uq_enrollment (course_id, student_id),
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            course_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
+        )''',
+        '''CREATE TABLE IF NOT EXISTS sessions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
             description TEXT,
-            instructor_id INTEGER NOT NULL,
-            session_date TEXT NOT NULL,
-            start_time TEXT NOT NULL,
-            end_time TEXT NOT NULL,
-            meeting_link TEXT,
-            status TEXT DEFAULT 'scheduled',
+            instructor_id INT NOT NULL,
+            session_date VARCHAR(50) NOT NULL,
+            start_time VARCHAR(50) NOT NULL,
+            end_time VARCHAR(50) NOT NULL,
+            meeting_link VARCHAR(500),
+            status VARCHAR(50) DEFAULT 'scheduled',
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (instructor_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id INTEGER NOT NULL,
-            course_id INTEGER NOT NULL,
-            session_id INTEGER NOT NULL,
-            join_time TEXT,
-            status TEXT DEFAULT 'present',
-            UNIQUE(session_id, student_id),
+        )''',
+        '''CREATE TABLE IF NOT EXISTS attendance (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            student_id INT NOT NULL,
+            course_id INT NOT NULL,
+            session_id INT NOT NULL,
+            join_time VARCHAR(50),
+            status VARCHAR(50) DEFAULT 'present',
+            UNIQUE KEY uq_attendance (session_id, student_id),
             FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS announcements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            course_id INTEGER NOT NULL,
-            author_id INTEGER NOT NULL,
-            title TEXT NOT NULL,
+        )''',
+        '''CREATE TABLE IF NOT EXISTS announcements (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_id INT NOT NULL,
+            author_id INT NOT NULL,
+            title VARCHAR(255) NOT NULL,
             content TEXT NOT NULL,
-            created_at TEXT NOT NULL,
+            created_at VARCHAR(50) NOT NULL,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (author_id) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS materials (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            course_id INTEGER NOT NULL,
-            uploaded_by INTEGER NOT NULL,
-            filename TEXT NOT NULL,
-            original_name TEXT NOT NULL,
-            file_type TEXT NOT NULL,
-            file_size INTEGER,
-            uploaded_at TEXT NOT NULL,
+        )''',
+        '''CREATE TABLE IF NOT EXISTS materials (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            course_id INT NOT NULL,
+            uploaded_by INT NOT NULL,
+            filename VARCHAR(255) NOT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            file_type VARCHAR(100) NOT NULL,
+            file_size INT,
+            uploaded_at VARCHAR(50) NOT NULL,
             FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
             FOREIGN KEY (uploaded_by) REFERENCES users(id)
-        );
-
-        CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            title TEXT NOT NULL,
+        )''',
+        '''CREATE TABLE IF NOT EXISTS notifications (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            type VARCHAR(100) NOT NULL,
+            title VARCHAR(255) NOT NULL,
             message TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL,
-            related_id INTEGER,
+            is_read TINYINT(1) DEFAULT 0,
+            created_at VARCHAR(50) NOT NULL,
+            related_id INT,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-    ''')
+        )''',
+    ]
 
-    _seed_defaults(conn)
-    conn.commit()
-    conn.close()
+    for stmt in statements:
+        cursor.execute(stmt)
+    raw_conn.commit()
+
+    _seed_defaults(raw_conn, cursor)
+    cursor.close()
+    raw_conn.close()
 
 
-def _seed_defaults(conn):
+def _seed_defaults(conn, cursor):
     now = datetime.datetime.utcnow().isoformat()
     defaults = [
         ('admin@edustream.edu', 'Platform Admin', 'admin', 'Admin@123'),
@@ -158,29 +222,31 @@ def _seed_defaults(conn):
         ('student@edustream.edu', 'Alex Johnson', 'student', 'Student@123'),
     ]
     for email, name, role, password in defaults:
-        existing = conn.execute('SELECT id FROM users WHERE email=?', (email,)).fetchone()
-        if not existing:
-            conn.execute(
-                'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?,?,?,?,?)',
+        cursor.execute('SELECT id FROM users WHERE email=%s', (email,))
+        if not cursor.fetchone():
+            cursor.execute(
+                'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (%s,%s,%s,%s,%s)',
                 (email, generate_password_hash(password), name, role, now)
             )
 
-    teacher = conn.execute(
-        "SELECT id FROM users WHERE email='teacher@edustream.edu'"
-    ).fetchone()
-    if teacher and conn.execute('SELECT COUNT(*) FROM courses').fetchone()[0] == 0:
-        conn.execute(
+    cursor.execute("SELECT id FROM users WHERE email='teacher@edustream.edu'")
+    teacher = cursor.fetchone()
+    cursor.execute('SELECT COUNT(*) as cnt FROM courses')
+    count = cursor.fetchone()['cnt']
+    if teacher and count == 0:
+        cursor.execute(
             '''INSERT INTO courses (title, course_code, description, instructor_id, category, created_at)
-               VALUES (?,?,?,?,?,?)''',
-            ('Introduction to Computer Science', 'CS101', 'Fundamentals of programming and algorithms',
+               VALUES (%s,%s,%s,%s,%s,%s)''',
+            ('Introduction to Computer Science', 'CS101',
+             'Fundamentals of programming and algorithms',
              teacher['id'], 'Technology', now)
         )
-        course_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
-        student = conn.execute(
-            "SELECT id FROM users WHERE email='student@edustream.edu'"
-        ).fetchone()
+        course_id = cursor.lastrowid
+        cursor.execute("SELECT id FROM users WHERE email='student@edustream.edu'")
+        student = cursor.fetchone()
         if student:
-            conn.execute(
-                'INSERT INTO enrollments (course_id, student_id, enrolled_at) VALUES (?,?,?)',
+            cursor.execute(
+                'INSERT INTO enrollments (course_id, student_id, enrolled_at) VALUES (%s,%s,%s)',
                 (course_id, student['id'], now)
             )
+    conn.commit()

@@ -15,18 +15,18 @@ sessions_bp = Blueprint('sessions', __name__)
 def _can_manage_session(conn, session_id, user):
     if user['role'] == 'admin':
         return True
-    row = conn.execute('SELECT instructor_id, course_id FROM sessions WHERE id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT instructor_id, course_id FROM sessions WHERE id=%s', (session_id,)).fetchone()
     if not row:
         return False
     if user['role'] == 'teacher' and row['instructor_id'] == user['id']:
         return True
-    course = conn.execute('SELECT instructor_id FROM courses WHERE id=?', (row['course_id'],)).fetchone()
+    course = conn.execute('SELECT instructor_id FROM courses WHERE id=%s', (row['course_id'],)).fetchone()
     return course and course['instructor_id'] == user['id']
 
 
 def _is_enrolled(conn, course_id, student_id):
     return conn.execute(
-        'SELECT id FROM enrollments WHERE course_id=? AND student_id=?',
+        'SELECT id FROM enrollments WHERE course_id=%s AND student_id=%s',
         (course_id, student_id)
     ).fetchone() is not None
 
@@ -39,7 +39,7 @@ def list_sessions(course_id):
     rows = conn.execute('''
         SELECT s.*, u.name AS instructor_name
         FROM sessions s JOIN users u ON u.id = s.instructor_id
-        WHERE s.course_id=? ORDER BY s.session_date, s.start_time
+        WHERE s.course_id=%s ORDER BY s.session_date, s.start_time
     ''', (course_id,)).fetchall()
     conn.close()
     return jsonify([session_to_dict(r) for r in rows])
@@ -58,7 +58,7 @@ def create_session(course_id):
         return jsonify(error='Title, date, start time, and end time are required'), 400
 
     conn = get_db()
-    course = conn.execute('SELECT * FROM courses WHERE id=?', (course_id,)).fetchone()
+    course = conn.execute('SELECT * FROM courses WHERE id=%s', (course_id,)).fetchone()
     if not course:
         conn.close()
         return jsonify(error='Course not found'), 404
@@ -73,19 +73,19 @@ def create_session(course_id):
     meeting_link = data.get('meeting_link') or f'https://meet.edustream.edu/session/{course_id}'
     conn.execute(
         '''INSERT INTO sessions (course_id, title, description, instructor_id, session_date,
-           start_time, end_time, meeting_link, status) VALUES (?,?,?,?,?,?,?,?,?)''',
+           start_time, end_time, meeting_link, status) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)''',
         (course_id, title, data.get('description', ''), instructor_id, session_date[:10],
          start_time[:5], end_time[:5], meeting_link, 'scheduled')
     )
     conn.commit()
-    session_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    session_id = conn.execute('SELECT LAST_INSERT_ID()').fetchone()['LAST_INSERT_ID()']
     notify_course_students(
         conn, course_id, 'session_reminder', f'New session: {title}',
         f'A new session "{title}" has been scheduled for {session_date[:10]}.',
         session_id, exclude_user_id=g.user['id']
     )
     conn.commit()
-    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=%s', (session_id,)).fetchone()
     conn.close()
     return jsonify(session_to_dict(row)), 201
 
@@ -95,7 +95,7 @@ def get_session(session_id):
     conn = get_db()
     sync_session_status(conn, session_id)
     conn.commit()
-    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=%s', (session_id,)).fetchone()
     conn.close()
     if not row:
         return jsonify(error='Session not found'), 404
@@ -119,15 +119,15 @@ def update_session(session_id):
                 val = val[:10]
             elif key in ('start_time', 'end_time'):
                 val = val[:5]
-            fields.append(f'{key}=?')
+            fields.append(f'{key}=%s')
             values.append(val)
     if not fields:
         conn.close()
         return jsonify(error='No fields to update'), 400
     values.append(session_id)
-    conn.execute(f'UPDATE sessions SET {", ".join(fields)} WHERE id=?', values)
+    conn.execute(f'UPDATE sessions SET {", ".join(fields)} WHERE id=%s', values)
     conn.commit()
-    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=%s', (session_id,)).fetchone()
     conn.close()
     return jsonify(session_to_dict(row))
 
@@ -139,7 +139,7 @@ def delete_session(session_id):
     if not _can_manage_session(conn, session_id, g.user):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    conn.execute('DELETE FROM sessions WHERE id=?', (session_id,))
+    conn.execute('DELETE FROM sessions WHERE id=%s', (session_id,))
     conn.commit()
     conn.close()
     return jsonify(message='Session deleted')
@@ -152,11 +152,11 @@ def cancel_session(session_id):
     if not _can_manage_session(conn, session_id, g.user):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    row = conn.execute('SELECT * FROM sessions WHERE id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT * FROM sessions WHERE id=%s', (session_id,)).fetchone()
     if not row:
         conn.close()
         return jsonify(error='Session not found'), 404
-    conn.execute("UPDATE sessions SET status='cancelled' WHERE id=?", (session_id,))
+    conn.execute("UPDATE sessions SET status='cancelled' WHERE id=%s", (session_id,))
     notify_course_students(
         conn, row['course_id'], 'session_cancelled', f'Session cancelled: {row["title"]}',
         f'The session "{row["title"]}" has been cancelled.', session_id
@@ -173,17 +173,17 @@ def start_session(session_id):
     if not _can_manage_session(conn, session_id, g.user):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    row = conn.execute('SELECT * FROM sessions WHERE id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT * FROM sessions WHERE id=%s', (session_id,)).fetchone()
     if not row:
         conn.close()
         return jsonify(error='Session not found'), 404
-    conn.execute("UPDATE sessions SET status='live' WHERE id=?", (session_id,))
+    conn.execute("UPDATE sessions SET status='live' WHERE id=%s", (session_id,))
     notify_course_students(
         conn, row['course_id'], 'session_live', f'Session live: {row["title"]}',
         f'"{row["title"]}" is now live. Join now!', session_id
     )
     conn.commit()
-    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=%s', (session_id,)).fetchone()
     conn.close()
     return jsonify(session_to_dict(row))
 
@@ -195,9 +195,9 @@ def end_session(session_id):
     if not _can_manage_session(conn, session_id, g.user):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    conn.execute("UPDATE sessions SET status='completed' WHERE id=?", (session_id,))
+    conn.execute("UPDATE sessions SET status='completed' WHERE id=%s", (session_id,))
     conn.commit()
-    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT s.*, u.name AS instructor_name FROM sessions s JOIN users u ON u.id = s.instructor_id WHERE s.id=%s', (session_id,)).fetchone()
     conn.close()
     if not row:
         return jsonify(error='Session not found'), 404
@@ -209,7 +209,7 @@ def end_session(session_id):
 def join_session(session_id):
     conn = get_db()
     sync_session_status(conn, session_id)
-    row = conn.execute('SELECT * FROM sessions WHERE id=?', (session_id,)).fetchone()
+    row = conn.execute('SELECT * FROM sessions WHERE id=%s', (session_id,)).fetchone()
     if not row:
         conn.close()
         return jsonify(error='Session not found'), 404
@@ -229,17 +229,17 @@ def join_session(session_id):
     metrics.ATTENDANCE_REQUESTS.inc()
 
     existing = conn.execute(
-        'SELECT id FROM attendance WHERE session_id=? AND student_id=?',
+        'SELECT id FROM attendance WHERE session_id=%s AND student_id=%s',
         (session_id, g.user['id'])
     ).fetchone()
     now = datetime.datetime.utcnow().isoformat()
     if not existing:
         conn.execute(
             '''INSERT INTO attendance (student_id, course_id, session_id, join_time, status)
-               VALUES (?,?,?,?,?)''',
+               VALUES (%s,%s,%s,%s,%s)''',
             (g.user['id'], session['course_id'], session_id, now, 'present')
         )
-    conn.execute("UPDATE sessions SET status='live' WHERE id=? AND status='scheduled'", (session_id,))
+    conn.execute("UPDATE sessions SET status='live' WHERE id=%s AND status='scheduled'", (session_id,))
     conn.commit()
     conn.close()
     return jsonify(

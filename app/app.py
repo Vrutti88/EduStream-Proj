@@ -58,9 +58,9 @@ def create_app():
             sync_all_sessions(conn)
             conn.commit()
             metrics.ACTIVE_SESSIONS.set(
-                conn.execute("SELECT COUNT(*) FROM sessions WHERE status='live'").fetchone()[0]
+                conn.execute("SELECT COUNT(*) AS cnt FROM sessions WHERE status='live'").fetchone()['cnt']
             )
-            metrics.ACTIVE_USERS.set(conn.execute('SELECT COUNT(*) FROM users').fetchone()[0])
+            metrics.ACTIVE_USERS.set(conn.execute('SELECT COUNT(*) AS cnt FROM users').fetchone()['cnt'])
             conn.close()
         except Exception:
             pass
@@ -75,7 +75,6 @@ def create_app():
 
 
 app = create_app()
-db.DB = db.DB_PATH
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)

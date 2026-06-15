@@ -13,7 +13,7 @@ def session_attendance(session_id):
     rows = conn.execute('''
         SELECT a.*, u.name AS student_name, u.email AS student_email
         FROM attendance a JOIN users u ON u.id = a.student_id
-        WHERE a.session_id=? ORDER BY a.join_time
+        WHERE a.session_id=%s ORDER BY a.join_time
     ''', (session_id,)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -28,7 +28,7 @@ def course_attendance(course_id):
         FROM attendance a
         JOIN users u ON u.id = a.student_id
         JOIN sessions s ON s.id = a.session_id
-        WHERE a.course_id=? ORDER BY a.join_time DESC
+        WHERE a.course_id=%s ORDER BY a.join_time DESC
     ''', (course_id,)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -43,7 +43,7 @@ def my_attendance():
         FROM attendance a
         JOIN courses c ON c.id = a.course_id
         JOIN sessions s ON s.id = a.session_id
-        WHERE a.student_id=? ORDER BY a.join_time DESC
+        WHERE a.student_id=%s ORDER BY a.join_time DESC
     ''', (g.user['id'],)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -79,11 +79,11 @@ def attendance_reports():
 '''
     params = []
     if course_id:
-        query += ' AND s.course_id = ?'
+        query += ' AND s.course_id = %s'
         params.append(course_id)
 
     if g.user['role'] == 'teacher':
-        query += ' AND c.instructor_id = ?'
+        query += ' AND c.instructor_id = %s'
         params.append(g.user['id'])
     query += ' GROUP BY s.id ORDER BY s.session_date DESC'
     rows = conn.execute(query, params).fetchall()
@@ -100,7 +100,7 @@ def attendance_details(session_id):
         '''
         SELECT *
         FROM sessions
-        WHERE id=?
+        WHERE id=%s
         ''',
         (session_id,)
     ).fetchone()
@@ -129,9 +129,9 @@ def attendance_details(session_id):
 
         LEFT JOIN attendance a
         ON a.student_id = u.id
-        AND a.session_id = ?
+        AND a.session_id = %s
 
-        WHERE e.course_id = ?
+        WHERE e.course_id = %s
 
         ORDER BY u.name
         ''',

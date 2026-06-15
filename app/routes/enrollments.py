@@ -12,7 +12,7 @@ enrollments_bp = Blueprint('enrollments', __name__)
 @roles_required('student', 'admin')
 def enroll(course_id):
     conn = get_db()
-    course = conn.execute('SELECT * FROM courses WHERE id=?', (course_id,)).fetchone()
+    course = conn.execute('SELECT * FROM courses WHERE id=%s', (course_id,)).fetchone()
     if not course:
         conn.close()
         return jsonify(error='Course not found'), 404
@@ -24,7 +24,7 @@ def enroll(course_id):
             student_id = data['student_id']
 
     existing = conn.execute(
-        'SELECT id FROM enrollments WHERE course_id=? AND student_id=?',
+        'SELECT id FROM enrollments WHERE course_id=%s AND student_id=%s',
         (course_id, student_id)
     ).fetchone()
     if existing:
@@ -33,7 +33,7 @@ def enroll(course_id):
 
     now = datetime.datetime.utcnow().isoformat()
     conn.execute(
-        'INSERT INTO enrollments (course_id, student_id, enrolled_at) VALUES (?,?,?)',
+        'INSERT INTO enrollments (course_id, student_id, enrolled_at) VALUES (%s,%s,%s)',
         (course_id, student_id, now)
     )
     create_notification(
@@ -56,7 +56,7 @@ def course_students(course_id):
     rows = conn.execute('''
         SELECT e.id, e.enrolled_at, u.id AS student_id, u.name AS student_name, u.email AS student_email
         FROM enrollments e JOIN users u ON u.id = e.student_id
-        WHERE e.course_id=? ORDER BY e.enrolled_at DESC
+        WHERE e.course_id=%s ORDER BY e.enrolled_at DESC
     ''', (course_id,)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -66,7 +66,7 @@ def course_students(course_id):
 @login_required
 def remove_enrollment(course_id, student_id):
     conn = get_db()
-    course = conn.execute('SELECT instructor_id FROM courses WHERE id=?', (course_id,)).fetchone()
+    course = conn.execute('SELECT instructor_id FROM courses WHERE id=%s', (course_id,)).fetchone()
     if not course:
         conn.close()
         return jsonify(error='Course not found'), 404
@@ -75,7 +75,7 @@ def remove_enrollment(course_id, student_id):
     ):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    conn.execute('DELETE FROM enrollments WHERE course_id=? AND student_id=?', (course_id, student_id))
+    conn.execute('DELETE FROM enrollments WHERE course_id=%s AND student_id=%s', (course_id, student_id))
     conn.commit()
     conn.close()
     return jsonify(message='Enrollment removed')
@@ -90,7 +90,7 @@ def my_enrollments():
         FROM enrollments e
         JOIN courses c ON c.id = e.course_id
         JOIN users u ON u.id = c.instructor_id
-        WHERE e.student_id=? ORDER BY e.enrolled_at DESC
+        WHERE e.student_id=%s ORDER BY e.enrolled_at DESC
     ''', (g.user['id'],)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])

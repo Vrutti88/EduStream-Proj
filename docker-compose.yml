@@ -1,12 +1,42 @@
 version: "3.9"
 
 services:
+  mysql:
+    image: mysql:8.0
+    container_name: edustream_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: edustream_db
+      MYSQL_USER: edustream
+      MYSQL_PASSWORD: edustream_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - edunet
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uedustream", "-pedustream_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   edustream:
     build: ./app
     image: edustream:local
     container_name: edustream
     ports:
       - "5000:5000"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=edustream
+      - MYSQL_PASSWORD=edustream_password
+      - MYSQL_DATABASE=edustream_db
+    depends_on:
+      mysql:
+        condition: service_healthy
     networks:
       - edunet
 
@@ -80,3 +110,6 @@ services:
 networks:
   edunet:
     driver: bridge
+
+volumes:
+  mysql_data:

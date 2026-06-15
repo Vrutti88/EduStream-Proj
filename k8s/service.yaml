@@ -24,8 +24,7 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
 spec:
   rules:
-    - host: edustream.example.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Prefix

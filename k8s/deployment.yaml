@@ -25,7 +25,8 @@ spec:
     spec:
       containers:
         - name: edustream
-          image: yourdockerhub/edustream:IMAGE_TAG_PLACEHOLDER
+          image: vrutti88/edustream:IMAGE_TAG_PLACEHOLDER
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
           envFrom:

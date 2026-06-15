@@ -14,7 +14,7 @@ scrape_configs:
   - job_name: 'edustream-app'
     metrics_path: /metrics
     static_configs:
-      - targets: ['edustream:5000']
+      - targets: ['edustream-svc:5000']
 
   - job_name: 'kubernetes-pods'
     kubernetes_sd_configs:

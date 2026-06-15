@@ -13,13 +13,13 @@ def platform_stats():
     conn = get_db()
     sync_all_sessions(conn)
     conn.commit()
-    total_users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-    total_teachers = conn.execute("SELECT COUNT(*) FROM users WHERE role='teacher'").fetchone()[0]
-    total_students = conn.execute("SELECT COUNT(*) FROM users WHERE role='student'").fetchone()[0]
-    total_courses = conn.execute('SELECT COUNT(*) FROM courses').fetchone()[0]
-    total_sessions = conn.execute('SELECT COUNT(*) FROM sessions').fetchone()[0]
-    total_enrollments = conn.execute('SELECT COUNT(*) FROM enrollments').fetchone()[0]
-    live_sessions = conn.execute("SELECT COUNT(*) FROM sessions WHERE status='live'").fetchone()[0]
+    total_users = conn.execute('SELECT COUNT(*) AS cnt FROM users').fetchone()['cnt']
+    total_teachers = conn.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='teacher'").fetchone()['cnt']
+    total_students = conn.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='student'").fetchone()['cnt']
+    total_courses = conn.execute('SELECT COUNT(*) AS cnt FROM courses').fetchone()['cnt']
+    total_sessions = conn.execute('SELECT COUNT(*) AS cnt FROM sessions').fetchone()['cnt']
+    total_enrollments = conn.execute('SELECT COUNT(*) AS cnt FROM enrollments').fetchone()['cnt']
+    live_sessions = conn.execute("SELECT COUNT(*) AS cnt FROM sessions WHERE status='live'").fetchone()['cnt']
     conn.close()
     return jsonify(
         total_users=total_users,
@@ -41,14 +41,14 @@ def admin_dashboard():
     sync_all_sessions(conn)
     conn.commit()
     stats = {
-        'total_users': conn.execute('SELECT COUNT(*) FROM users').fetchone()[0],
-        'total_teachers': conn.execute("SELECT COUNT(*) FROM users WHERE role='teacher'").fetchone()[0],
-        'total_students': conn.execute("SELECT COUNT(*) FROM users WHERE role='student'").fetchone()[0],
-        'total_courses': conn.execute('SELECT COUNT(*) FROM courses').fetchone()[0],
-        'total_sessions': conn.execute('SELECT COUNT(*) FROM sessions').fetchone()[0],
-        'active_sessions': conn.execute("SELECT COUNT(*) FROM sessions WHERE status='live'").fetchone()[0],
-        'total_enrollments': conn.execute('SELECT COUNT(*) FROM enrollments').fetchone()[0],
-        'total_attendance': conn.execute("SELECT COUNT(*) FROM attendance WHERE status='present'").fetchone()[0],
+        'total_users': conn.execute('SELECT COUNT(*) AS cnt FROM users').fetchone()['cnt'],
+        'total_teachers': conn.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='teacher'").fetchone()['cnt'],
+        'total_students': conn.execute("SELECT COUNT(*) AS cnt FROM users WHERE role='student'").fetchone()['cnt'],
+        'total_courses': conn.execute('SELECT COUNT(*) AS cnt FROM courses').fetchone()['cnt'],
+        'total_sessions': conn.execute('SELECT COUNT(*) AS cnt FROM sessions').fetchone()['cnt'],
+        'active_sessions': conn.execute("SELECT COUNT(*) AS cnt FROM sessions WHERE status='live'").fetchone()['cnt'],
+        'total_enrollments': conn.execute('SELECT COUNT(*) AS cnt FROM enrollments').fetchone()['cnt'],
+        'total_attendance': conn.execute("SELECT COUNT(*) AS cnt FROM attendance WHERE status='present'").fetchone()['cnt'],
     }
     enrollment_by_course = conn.execute('''
         SELECT c.title, COUNT(e.id) AS count
@@ -80,26 +80,26 @@ def teacher_dashboard():
     conn.commit()
     teacher_id = g.user['id']
     my_courses = conn.execute(
-        'SELECT COUNT(*) FROM courses WHERE instructor_id=?', (teacher_id,)
-    ).fetchone()[0]
+        'SELECT COUNT(*) AS cnt FROM courses WHERE instructor_id=%s', (teacher_id,)
+    ).fetchone()['cnt']
     my_sessions = conn.execute(
-        'SELECT COUNT(*) FROM sessions WHERE instructor_id=?', (teacher_id,)
-    ).fetchone()[0]
+        'SELECT COUNT(*) AS cnt FROM sessions WHERE instructor_id=%s', (teacher_id,)
+    ).fetchone()['cnt']
     upcoming = conn.execute('''
-        SELECT COUNT(*) FROM sessions s
+        SELECT COUNT(*) AS cnt FROM sessions s
         JOIN courses c ON c.id = s.course_id
-        WHERE c.instructor_id=? AND s.status='scheduled'
-    ''', (teacher_id,)).fetchone()[0]
+        WHERE c.instructor_id=%s AND s.status='scheduled'
+    ''', (teacher_id,)).fetchone()['cnt']
     student_count = conn.execute('''
-        SELECT COUNT(DISTINCT e.student_id) FROM enrollments e
-        JOIN courses c ON c.id = e.course_id WHERE c.instructor_id=?
-    ''', (teacher_id,)).fetchone()[0]
+        SELECT COUNT(DISTINCT e.student_id) AS cnt FROM enrollments e
+        JOIN courses c ON c.id = e.course_id WHERE c.instructor_id=%s
+    ''', (teacher_id,)).fetchone()['cnt']
     # attendance_stats = conn.execute('''
     #     SELECT COUNT(a.id) AS present,
-    #            (SELECT COUNT(*) FROM sessions s JOIN courses c ON c.id=s.course_id WHERE c.instructor_id=?) AS total_sessions
+    #            (SELECT COUNT(*) AS cnt FROM sessions s JOIN courses c ON c.id=s.course_id WHERE c.instructor_id=%s) AS total_sessions
     #     FROM attendance a
     #     JOIN courses c ON c.id = a.course_id
-    #     WHERE c.instructor_id=?
+    #     WHERE c.instructor_id=%s
     # ''', (teacher_id, teacher_id)).fetchone()
     # attendance_percentage = round(
     #     (
@@ -111,7 +111,7 @@ def teacher_dashboard():
     upcoming_sessions = conn.execute('''
         SELECT s.*, c.title AS course_title FROM sessions s
         JOIN courses c ON c.id = s.course_id
-        WHERE c.instructor_id=? AND s.status IN ('scheduled','live')
+        WHERE c.instructor_id=%s AND s.status IN ('scheduled','live')
         ORDER BY s.session_date, s.start_time LIMIT 5
     ''', (teacher_id,)).fetchall()
     conn.close()
@@ -134,27 +134,27 @@ def student_dashboard():
     conn.commit()
     student_id = g.user['id']
     enrolled = conn.execute(
-        'SELECT COUNT(*) FROM enrollments WHERE student_id=?', (student_id,)
-    ).fetchone()[0]
+        'SELECT COUNT(*) AS cnt FROM enrollments WHERE student_id=%s', (student_id,)
+    ).fetchone()['cnt']
     upcoming = conn.execute('''
         SELECT s.*, c.title AS course_title FROM sessions s
         JOIN courses c ON c.id = s.course_id
-        JOIN enrollments e ON e.course_id = c.id AND e.student_id=?
+        JOIN enrollments e ON e.course_id = c.id AND e.student_id=%s
         WHERE s.status IN ('scheduled','live')
         ORDER BY s.session_date, s.start_time LIMIT 5
     ''', (student_id,)).fetchall()
     attended = conn.execute(
-        "SELECT COUNT(*) FROM attendance WHERE student_id=? AND status='present'", (student_id,)
-    ).fetchone()[0]
+        "SELECT COUNT(*) AS cnt FROM attendance WHERE student_id=%s AND status='present'", (student_id,)
+    ).fetchone()['cnt']
     total_sessions = conn.execute('''
-        SELECT COUNT(*) FROM sessions s
-        JOIN enrollments e ON e.course_id = s.course_id AND e.student_id=?
-    ''', (student_id,)).fetchone()[0]
+        SELECT COUNT(*) AS cnt FROM sessions s
+        JOIN enrollments e ON e.course_id = s.course_id AND e.student_id=%s
+    ''', (student_id,)).fetchone()['cnt']
     pct = round((attended / total_sessions * 100) if total_sessions else 0, 1)
     announcements = conn.execute('''
         SELECT a.*, c.title AS course_title FROM announcements a
         JOIN courses c ON c.id = a.course_id
-        JOIN enrollments e ON e.course_id = a.course_id AND e.student_id=?
+        JOIN enrollments e ON e.course_id = a.course_id AND e.student_id=%s
         ORDER BY a.created_at DESC LIMIT 5
     ''', (student_id,)).fetchall()
     conn.close()

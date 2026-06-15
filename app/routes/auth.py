@@ -25,17 +25,17 @@ def register():
         role = 'student'
 
     conn = get_db()
-    if conn.execute('SELECT id FROM users WHERE email=?', (email,)).fetchone():
+    if conn.execute('SELECT id FROM users WHERE email=%s', (email,)).fetchone():
         conn.close()
         return jsonify(error='Email already registered'), 409
 
     conn.execute(
-        'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (?,?,?,?,?)',
+        'INSERT INTO users (email, password_hash, name, role, created_at) VALUES (%s,%s,%s,%s,%s)',
         (email, generate_password_hash(password), name, role,
          datetime.datetime.utcnow().isoformat())
     )
     conn.commit()
-    user_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+    user_id = conn.execute('SELECT LAST_INSERT_ID()').fetchone()['LAST_INSERT_ID()']
     user = {'id': user_id, 'email': email, 'name': name, 'role': role}
     create_notification(conn, user_id, 'welcome', 'Welcome to EduStream',
                         f'Your {role} account has been created successfully.')
@@ -52,7 +52,7 @@ def login():
     password = data.get('password') or ''
 
     conn = get_db()
-    row = conn.execute('SELECT * FROM users WHERE email=?', (email,)).fetchone()
+    row = conn.execute('SELECT * FROM users WHERE email=%s', (email,)).fetchone()
     conn.close()
     if not row or not check_password_hash(row['password_hash'], password):
         return jsonify(error='Invalid email or password'), 401

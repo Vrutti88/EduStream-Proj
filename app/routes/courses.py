@@ -22,7 +22,7 @@ def _can_manage_course(conn, course_id, user):
     if user['role'] == 'admin':
         return True
     if user['role'] == 'teacher':
-        row = conn.execute('SELECT instructor_id FROM courses WHERE id=?', (course_id,)).fetchone()
+        row = conn.execute('SELECT instructor_id FROM courses WHERE id=%s', (course_id,)).fetchone()
         return row and row['instructor_id'] == user['id']
     return False
 
@@ -42,10 +42,10 @@ def list_courses():
     '''
     params = []
     if search:
-        query += ' AND (c.title LIKE ? OR c.course_code LIKE ? OR c.description LIKE ?)'
+        query += ' AND (c.title LIKE %s OR c.course_code LIKE %s OR c.description LIKE %s)'
         params.extend([f'%{search}%'] * 3)
     if category:
-        query += ' AND c.category = ?'
+        query += ' AND c.category = %s'
         params.append(category)
     query += ' ORDER BY c.id DESC'
     rows = conn.execute(query, params).fetchall()
@@ -75,16 +75,16 @@ def create_course():
     try:
         conn.execute(
             '''INSERT INTO courses (title, course_code, description, instructor_id, category, thumbnail, created_at)
-               VALUES (?,?,?,?,?,?,?)''',
+               VALUES (%s,%s,%s,%s,%s,%s,%s)''',
             (title, code, data.get('description', ''), instructor_id,
              data.get('category', 'General'), data.get('thumbnail', ''),
              datetime.datetime.utcnow().isoformat())
         )
         conn.commit()
-        course_id = conn.execute('SELECT last_insert_rowid()').fetchone()[0]
+        course_id = conn.execute('SELECT LAST_INSERT_ID()').fetchone()['LAST_INSERT_ID()']
         row = conn.execute('''
             SELECT c.*, u.name AS instructor_name, 0 AS enrolled_count, 0 AS session_count
-            FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=?
+            FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=%s
         ''', (course_id,)).fetchone()
         conn.close()
         return jsonify(_course_dict(row)), 201
@@ -100,7 +100,7 @@ def get_course(course_id):
         SELECT c.*, u.name AS instructor_name,
                (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS enrolled_count,
                (SELECT COUNT(*) FROM sessions s WHERE s.course_id = c.id) AS session_count
-        FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=?
+        FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=%s
     ''', (course_id,)).fetchone()
     conn.close()
     if not row:
@@ -121,19 +121,19 @@ def update_course(course_id):
     values = []
     for key in ('title', 'description', 'category', 'thumbnail', 'course_code'):
         if key in data:
-            fields.append(f'{key}=?')
+            fields.append(f'{key}=%s')
             values.append(data[key])
     if not fields:
         conn.close()
         return jsonify(error='No fields to update'), 400
     values.append(course_id)
-    conn.execute(f'UPDATE courses SET {", ".join(fields)} WHERE id=?', values)
+    conn.execute(f'UPDATE courses SET {", ".join(fields)} WHERE id=%s', values)
     conn.commit()
     row = conn.execute('''
         SELECT c.*, u.name AS instructor_name,
                (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id) AS enrolled_count,
                (SELECT COUNT(*) FROM sessions s WHERE s.course_id = c.id) AS session_count
-        FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=?
+        FROM courses c JOIN users u ON u.id = c.instructor_id WHERE c.id=%s
     ''', (course_id,)).fetchone()
     conn.close()
     return jsonify(_course_dict(row))
@@ -146,7 +146,7 @@ def delete_course(course_id):
     if not _can_manage_course(conn, course_id, g.user):
         conn.close()
         return jsonify(error='Insufficient permissions'), 403
-    conn.execute('DELETE FROM courses WHERE id=?', (course_id,))
+    conn.execute('DELETE FROM courses WHERE id=%s', (course_id,))
     conn.commit()
     conn.close()
     return jsonify(message='Course deleted')
