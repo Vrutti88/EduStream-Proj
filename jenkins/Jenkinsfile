@@ -63,8 +63,7 @@ pipeline {
 
         stage('Provision Infra (Terraform)') {
             steps {
-                withCredentials([
-                ]) {
+                withAWS(credentials: 'aws-creds', region: 'ap-south-1') {
                     dir('terraform') {
                         sh '''
                             terraform init -input=false
