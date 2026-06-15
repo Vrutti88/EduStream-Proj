@@ -27,7 +27,7 @@ variable "project_name" {
 }
 
 variable "cluster_version" {
-  default = "1.29"
+  default = "1.35"
 }
 
 variable "node_instance_type" {
