@@ -39,7 +39,7 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "RDS master password"
+  description = "edustream123"
   type        = string
   sensitive   = true
 }
