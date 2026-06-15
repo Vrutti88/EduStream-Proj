@@ -8,7 +8,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "edustream-terraform-state"
+    bucket = "edustream-storage-bucket"
     key    = "edustream/terraform.tfstate"
     region = "ap-south-1"
   }
