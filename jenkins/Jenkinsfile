@@ -63,9 +63,14 @@ pipeline {
 
         stage('Provision Infra (Terraform)') {
             steps {
-                withAWS(credentials: 'aws-creds', region: 'ap-south-1') {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-creds']
+                ]) {
                     dir('terraform') {
                         sh '''
+                            export AWS_DEFAULT_REGION=ap-south-1
+        
                             terraform init -input=false
                             terraform plan -out=tfplan
                             terraform apply -input=false -auto-approve tfplan
