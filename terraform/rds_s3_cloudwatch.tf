@@ -56,21 +56,6 @@ resource "aws_s3_bucket_versioning" "storage" {
   }
 }
 
-resource "aws_s3_bucket_replication_configuration" "dr" {
-  depends_on = [aws_s3_bucket_versioning.storage]
-  bucket     = aws_s3_bucket.storage.id
-  role       = aws_iam_role.replication_role.arn
-
-  rule {
-    id     = "disaster-recovery-replication"
-    status = "Enabled"
-    destination {
-      bucket        = "arn:aws:s3:::${var.project_name}-dr-backup"
-      storage_class = "STANDARD_IA"
-    }
-  }
-}
-
 resource "aws_iam_role" "replication_role" {
   name = "${var.project_name}-s3-replication-role"
 
