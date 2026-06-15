@@ -7,7 +7,7 @@ output "eks_cluster_name" {
 }
 
 output "rds_endpoint" {
-  value     = aws_db_instance.main.endpoint
+  value     = data.aws_db_instance.main.endpoint
   sensitive = true
 }
 
