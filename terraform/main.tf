@@ -33,14 +33,3 @@ variable "cluster_version" {
 variable "node_instance_type" {
   default = "m7i-flex.large"
 }
-
-variable "db_username" {
-  default = "edustream_admin"
-}
-
-variable "db_password" {
-  description = "RDS master password"
-  type        = string
-  sensitive   = true
-  default     = "edustream123"
-}
