@@ -82,7 +82,7 @@ pipeline {
 
         stage('Fetch Secrets from Vault') {
             steps {
-                    '''
+                sh'''
                     export VAULT_TOKEN=$(vault login -method=approle role_id=$ROLE_ID secret_id=$SECRET_ID -field=token)
                     vault kv get -format=json secret/edustream/db > db-secret.json
                 '''
