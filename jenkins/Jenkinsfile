@@ -107,7 +107,7 @@ pipeline {
             steps {
                 sh '''
                     sleep 10
-                    B_URL=$(kubectl get svc edustream-svc \
+                    LB_URL=$(kubectl get svc edustream-svc \
                       -n $KUBE_NAMESPACE \
                       -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
         
