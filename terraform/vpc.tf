@@ -36,7 +36,8 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table_association" "public" {
   count          = 2
-  subnet_id      = data.aws_subnet.public.id
+  subnet_id      = data.aws_subnet.public0.id
+  subnet_id      = data.aws_subnet.public1.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -71,6 +72,7 @@ resource "aws_route_table" "private" {
 resource "aws_route_table_association" "private" {
   count = 2
 
-  subnet_id      = data.aws_subnet.private.id
+  subnet_id      = data.aws_subnet.private0.id
+  subnet_id      = data.aws_subnet.private1.id
   route_table_id = aws_route_table.private.id
 }
