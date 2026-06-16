@@ -1,40 +1,13 @@
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = { Name = "${var.project_name}-vpc" }
+data "aws_vpc" "main" {
+  id = "vpc-02767d6c4a2eb7414"
 }
 
-resource "aws_subnet" "public" {
-  count                   = 2
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.${count.index}.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name                                          = "${var.project_name}-public-${count.index}"
-    "kubernetes.io/role/elb"                      = "1"
-    "kubernetes.io/cluster/${var.project_name}-eks" = "shared"
-  }
+data "aws_subnet" "public" {
+  id = "subnet-0779c6e3ecd7aeaa3"
 }
 
-resource "aws_subnet" "private" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.${count.index + 10}.0/24"
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  tags = {
-    Name                                          = "${var.project_name}-private-${count.index}"
-    "kubernetes.io/role/internal-elb"             = "1"
-    "kubernetes.io/cluster/${var.project_name}-eks" = "shared"
-  }
-}
-
-data "aws_availability_zones" "available" {
-  state = "available"
+data "aws_subnet" "private" {
+  id = "subnet-0524673897791bc10"
 }
 
 resource "aws_internet_gateway" "igw" {
