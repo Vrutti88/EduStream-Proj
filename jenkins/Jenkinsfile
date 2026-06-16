@@ -107,7 +107,13 @@ pipeline {
             steps {
                 sh '''
                     sleep 10
-                    curl -f http://<LOAD_BALANCER_URL>/health
+                    B_URL=$(kubectl get svc edustream-svc \
+                      -n $KUBE_NAMESPACE \
+                      -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        
+                    echo "LB_URL=$LB_URL"
+        
+                    curl -f http://$LB_URL/health
                 '''
             }
         }
