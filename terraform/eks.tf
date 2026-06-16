@@ -28,7 +28,7 @@ resource "aws_eks_cluster" "main" {
       data.aws_subnet.private0.id,
       data.aws_subnet.private1.id
     ]
-    endpoint_private_access = true
+    endpoint_private_access = false
     endpoint_public_access  = true
   }
 
