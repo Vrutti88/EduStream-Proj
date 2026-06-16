@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: edustream
-          image: vrutti88/edustream:12
+          image: vrutti88/edustream:IMAGE_TAG_PLACEHOLDER
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
