@@ -90,6 +90,7 @@ pipeline {
             steps {
                 sh '''
                     echo "BUILD_NUMBER=$BUILD_NUMBER"
+                    grep image k8s/deployment.yaml
                     sed -i "s|IMAGE_TAG_PLACEHOLDER|$IMAGE_TAG|g" k8s/deployment.yaml
                     kubectl apply -f k8s/namespace.yaml
                     kubectl apply -f k8s/configmap.yaml
