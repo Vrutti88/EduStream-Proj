@@ -8,7 +8,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'ppt', 'pptx', 'doc', 'docx'}
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
 # MySQL connection settings
-MYSQL_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+MYSQL_HOST = os.environ.get('MYSQL_HOST', 'edustream-db.clc8o48041xi.ap-south-1.rds.amazonaws.com')
 MYSQL_PORT = int(os.environ.get('MYSQL_PORT', '3306'))
 MYSQL_USER = os.environ.get('MYSQL_USER', 'edustream')
 MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'edustream_password')
