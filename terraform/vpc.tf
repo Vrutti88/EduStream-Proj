@@ -2,11 +2,19 @@ data "aws_vpc" "main" {
   id = "vpc-02767d6c4a2eb7414"
 }
 
-data "aws_subnet" "public" {
+data "aws_subnet" "public0" {
+  id = "subnet-0321f6e517df85b67"
+}
+
+data "aws_subnet" "public1" {
   id = "subnet-0779c6e3ecd7aeaa3"
 }
 
-data "aws_subnet" "private" {
+data "aws_subnet" "private0" {
+  id = "subnet-0cb6fe0aad741584a"
+}
+
+data "aws_subnet" "private1" {
   id = "subnet-0524673897791bc10"
 }
 
