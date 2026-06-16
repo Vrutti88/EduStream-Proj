@@ -11,7 +11,7 @@ vault secrets enable -path=secret kv-v2 || true
 # 2. Store DB credentials
 vault kv put secret/edustream/db \
   username="edustream_admin" \
-  password="SuperSecretPassword123!" \
+  password="edustream123" \
   host="edustream-db.clc8o48041xi.ap-south-1.rds.amazonaws.com"
 
 # 3. Apply the access policy
