@@ -11,12 +11,12 @@ data "aws_subnet" "private" {
 }
 
 resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
   tags   = { Name = "${var.project_name}-igw" }
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -28,7 +28,7 @@ resource "aws_route_table" "public" {
 
 resource "aws_route_table_association" "public" {
   count          = 2
-  subnet_id      = aws_subnet.public[count.index].id
+  subnet_id      = data.aws_subnet.public.id
   route_table_id = aws_route_table.public.id
 }
 
@@ -48,7 +48,7 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -63,6 +63,6 @@ resource "aws_route_table" "private" {
 resource "aws_route_table_association" "private" {
   count = 2
 
-  subnet_id      = aws_subnet.private[count.index].id
+  subnet_id      = data.aws_subnet.private.id
   route_table_id = aws_route_table.private.id
 }
