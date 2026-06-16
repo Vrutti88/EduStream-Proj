@@ -7,7 +7,7 @@ data "aws_subnet" "public0" {
 }
 
 data "aws_subnet" "public1" {
-  id = "subnet-0779c6e3ecd7aeaa3"
+  id = "subnet-01ea8558e1c3a5f1f"
 }
 
 data "aws_subnet" "private0" {
@@ -15,7 +15,7 @@ data "aws_subnet" "private0" {
 }
 
 data "aws_subnet" "private1" {
-  id = "subnet-0524673897791bc10"
+  id = "subnet-0b705a927933c48d9"
 }
 
 resource "aws_internet_gateway" "igw" {
