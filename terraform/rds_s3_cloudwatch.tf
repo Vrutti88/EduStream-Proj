@@ -3,18 +3,11 @@ data "aws_db_instance" "main" {
 }
 
 # --- S3 bucket for recordings, logs, DR backups ---
-resource "aws_s3_bucket" "storage" {
-  bucket = "${var.project_name}-storage-${data.aws_caller_identity.current.account_id}"
+data "aws_s3_bucket" "storage" {
+  bucket = "edustream-storage-dr"
 }
 
 data "aws_caller_identity" "current" {}
-
-resource "aws_s3_bucket_versioning" "storage" {
-  bucket = aws_s3_bucket.storage.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
 
 resource "aws_iam_role" "replication_role" {
   name = "${var.project_name}-s3-replication-role"
