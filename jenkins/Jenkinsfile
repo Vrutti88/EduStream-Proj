@@ -89,6 +89,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 sh '''
+                    echo "BUILD_NUMBER=$BUILD_NUMBER"
                     sed -i "s|IMAGE_TAG_PLACEHOLDER|$IMAGE_TAG|g" k8s/deployment.yaml
                     kubectl apply -f k8s/namespace.yaml
                     kubectl apply -f k8s/configmap.yaml
