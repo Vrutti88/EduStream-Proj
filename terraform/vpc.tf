@@ -34,9 +34,12 @@ resource "aws_route_table" "public" {
   tags = { Name = "${var.project_name}-public-rt" }
 }
 
-resource "aws_route_table_association" "public" {
-  count          = 2
+resource "aws_route_table_association" "public0" {
   subnet_id      = data.aws_subnet.public0.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public1" {
   subnet_id      = data.aws_subnet.public1.id
   route_table_id = aws_route_table.public.id
 }
@@ -47,7 +50,7 @@ resource "aws_eip" "nat" {
 
 resource "aws_nat_gateway" "main" {
   allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+  subnet_id = data.aws_subnet.public0.id
 
   tags = {
     Name = "${var.project_name}-nat"
@@ -69,10 +72,12 @@ resource "aws_route_table" "private" {
   }
 }
 
-resource "aws_route_table_association" "private" {
-  count = 2
-
+resource "aws_route_table_association" "private0" {
   subnet_id      = data.aws_subnet.private0.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private1" {
   subnet_id      = data.aws_subnet.private1.id
   route_table_id = aws_route_table.private.id
 }
