@@ -107,7 +107,11 @@ pipeline {
             steps {
                 sh '''
                     sleep 10
-                    curl -f http://<LOAD_BALANCER_URL>/health
+                    kubectl run curl-test \
+                      --rm -i --restart=Never \
+                      --image=curlimages/curl:latest \
+                      -n $KUBE_NAMESPACE \
+                      -- curl http://edustream-svc/health
                 '''
             }
         }
