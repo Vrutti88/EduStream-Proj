@@ -17,7 +17,7 @@ def _get_pool():
     if _pool is None:
         _pool = pooling.MySQLConnectionPool(
             pool_name="edustream_pool",
-            pool_size=5,
+            pool_size=3,
             host=MYSQL_HOST,
             port=MYSQL_PORT,
             user=MYSQL_USER,
