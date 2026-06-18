@@ -3,7 +3,7 @@
 ## 1. Objectives
 
 * **Recovery Time Objective (RTO):** 30 Minutes
-* **Recovery Point Objective (RPO):** 24 Hours (based on automated database backups)
+* **Recovery Point Objective (RPO):** 2 - 4 Hours (based on automated database backups)
 
 ---
 
