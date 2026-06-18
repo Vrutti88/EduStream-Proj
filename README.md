@@ -126,7 +126,6 @@ Amazon S3
 EduStream/
 │
 ├── app/
-├── docker-compose.yml
 ├── terraform/
 ├── k8s/
 ├── monitoring/
