@@ -1,54 +1,116 @@
-# EduStream — Disaster Recovery Plan
+# Disaster Recovery Plan
 
 ## 1. Objectives
-- **RTO (Recovery Time Objective):** 30 minutes
-- **RPO (Recovery Point Objective):** 15 minutes (via RDS automated backups + S3 versioning)
+
+* **Recovery Time Objective (RTO):** 30 Minutes
+* **Recovery Point Objective (RPO):** 24 Hours (based on automated database backups)
+
+---
 
 ## 2. Backup Strategy
-| Component | Backup method | Frequency | Location |
-|---|---|---|---|
-| RDS PostgreSQL | Automated snapshots + multi-AZ standby | Continuous (5-min log shipping), daily snapshot | Same region + cross-region copy |
-| S3 application data | Versioning + cross-region replication | Real-time | Secondary region bucket |
-| Kubernetes manifests / Terraform state | Git repository + S3 remote state with versioning | On every commit | GitHub + S3 |
-| Container images | Pushed to registry with immutable tags | Every build | Docker Hub / ECR |
-| Vault secrets | Vault snapshot (`vault operator raft snapshot save`) | Daily | S3 (encrypted) |
 
-## 3. Failure Scenarios & Recovery Steps
+| Component                   | Backup Method       | Frequency                      | Location              |
+| --------------------------- | ------------------- | ------------------------------ | --------------------- |
+| MySQL Database (Amazon RDS) | Automated Snapshots | Daily                          | Amazon RDS            |
+| S3 Backup Storage           | Versioning Enabled  | Continuous                     | Amazon S3             |
+| Terraform State Files       | S3 Backend Storage  | On Every Infrastructure Change | Amazon S3             |
+| Source Code                 | Git Repository      | On Every Commit                | GitHub                |
+| Docker Images               | Image Repository    | On Every Build                 | Amazon ECR            |
+| Vault Secrets               | Vault Backup        | Daily                          | Secure Backup Storage |
 
-### 3.1 Pod / Application Crash
-1. Kubernetes liveness probe detects failure, restarts pod automatically.
-2. If repeated crash loop: `kubectl rollout undo deployment/edustream -n edustream` to revert to last known-good image.
-3. Verify via `/health` endpoint and Grafana dashboard.
+---
+
+## 3. Failure Scenarios and Recovery Procedures
+
+### 3.1 Application Pod Failure
+
+1. Kubernetes detects pod failure using health checks.
+2. Failed pod is automatically restarted.
+3. Traffic is redirected to healthy pods.
+4. Verify application status using Grafana dashboards and health endpoints.
+
+---
 
 ### 3.2 Node Failure
-1. EKS node group Auto Scaling replaces the unhealthy node automatically.
-2. Pods reschedule onto healthy nodes (replicas=2 minimum ensures availability).
-3. CloudWatch alarm `node-cpu-high` / node-not-ready notifies the on-call engineer.
 
-### 3.3 Database Failure (RDS)
-1. Multi-AZ failover triggers automatically (typically 60–120 seconds).
-2. Application reconnects using the same RDS endpoint (DNS-based failover).
-3. If full region failure: restore latest automated snapshot in DR region, update `DB_HOST` secret in Vault, restart pods to pick up new secret.
+1. Kubernetes reschedules workloads to available worker nodes.
+2. EKS automatically maintains the desired node count.
+3. CloudWatch alerts notify administrators.
+4. Verify application availability.
 
-### 3.4 Full Cluster / Region Failure
-1. Run `terraform apply` against the DR region using the backed-up state file.
-2. Restore RDS from latest cross-region snapshot.
-3. Restore S3 data from replicated DR bucket.
-4. Re-run Vault setup script (`vault/setup-vault.sh`) pointing to new infrastructure endpoints.
-5. Apply Kubernetes manifests (`kubectl apply -f k8s/`) to the new EKS cluster.
-6. Update DNS (Route 53) to point to the new ALB.
-7. Run smoke tests against `/health` and `/api/stats`.
+---
 
-### 3.5 Secrets Compromise
-1. Revoke compromised Vault token: `vault token revoke <token>`.
-2. Rotate DB credentials in Vault (`vault kv put secret/edustream/db ...`) and in RDS.
-3. Restart pods to re-inject fresh secrets via Vault Agent.
+### 3.3 Database Failure (Amazon RDS MySQL)
 
-## 4. Validation / DR Drills
-- Quarterly: restore RDS snapshot into a staging environment and verify data integrity.
-- Quarterly: simulate pod deletion (`kubectl delete pod`) and confirm auto-recovery within RTO.
-- Annually: full failover drill to DR region.
+1. Identify database failure using CloudWatch alerts.
+2. Restore the latest available automated snapshot.
+3. Update application database configuration if required.
+4. Restart application pods.
+5. Validate application connectivity and data integrity.
+
+---
+
+### 3.4 Kubernetes Cluster Failure
+
+1. Recreate infrastructure using Terraform scripts.
+2. Restore Kubernetes resources using deployment manifests.
+3. Pull application images from Amazon ECR.
+4. Redeploy application workloads.
+5. Verify application functionality.
+
+---
+
+### 3.5 Complete Infrastructure Failure
+
+1. Provision new AWS infrastructure using Terraform.
+2. Restore database from latest RDS snapshot.
+3. Restore application configuration and secrets.
+4. Redeploy Kubernetes workloads.
+5. Validate services and monitoring systems.
+
+---
+
+### 3.6 Secret Exposure or Credential Compromise
+
+1. Revoke compromised credentials.
+2. Generate new credentials.
+3. Update secrets in HashiCorp Vault.
+4. Restart affected application services.
+5. Verify secure application access.
+
+---
+
+## 4. Disaster Recovery Testing
+
+### Monthly Testing
+
+* Verify database backup restoration.
+* Validate Kubernetes pod recovery.
+* Test Jenkins deployment rollback.
+
+### Quarterly Testing
+
+* Restore infrastructure using Terraform.
+* Validate application deployment process.
+* Verify monitoring and alerting systems.
+
+---
 
 ## 5. Communication Plan
-- Incidents logged in the incident management tool with timestamps.
-- Postmortem written within 48 hours covering root cause, timeline, and corrective actions (per SRE practices).
+
+* CloudWatch and Grafana alerts notify administrators.
+* Incidents are documented and tracked.
+* Root cause analysis is performed after recovery.
+* Corrective actions are implemented to prevent recurrence.
+
+---
+
+## 6. Expected Recovery Results
+
+| Failure Type                 | Expected Recovery Time |
+| ---------------------------- | ---------------------- |
+| Pod Failure                  | Less than 2 Minutes    |
+| Node Failure                 | 5–10 Minutes           |
+| Application Failure          | 5 Minutes              |
+| Database Restore             | 15–30 Minutes          |
+| Full Infrastructure Recovery | 30–60 Minutes          |
